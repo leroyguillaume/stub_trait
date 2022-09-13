@@ -1,0 +1,68 @@
+---
+name: ci
+
+on:
+  push:
+    paths-ignore:
+      - .gitignore
+      - LICENSE
+      - "*.md"
+
+jobs:
+  commitlint:
+    name: commitlint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+
+      - name: Get npm cache directory
+        id: npm-cache-dir
+        run: echo "::set-output name=dir::$(npm config get cache)"
+
+      - name: Restore npm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.npm-cache-dir.outputs.dir }}
+          key: ${{ runner.os }}-npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run commitlint
+        run: node node_modules/@commitlint/cli/cli.js --from=main --to="${GITHUB_SHA}"
+
+  lint-clippy-test:
+    name: lint-clippy-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Restore cargo cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run pre-commit
+        uses: pre-commit/action@v3.0.0
+
+      - name: Run test
+        run: cargo test --all

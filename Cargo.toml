@@ -1,0 +1,2 @@
+[workspace]
+members = ["stub_trait_core", "stub_trait"]
