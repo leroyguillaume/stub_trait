@@ -1,3 +1,6 @@
+![ci](https://github.com/leroyguillaume/stub_trait/actions/workflows/ci.yml/badge.svg)
+![publish](https://github.com/leroyguillaume/stub_trait/actions/workflows/publish.yml/badge.svg)
+
 # stub_trait
 
 Macro to implement stub object for a trait.
@@ -11,7 +14,7 @@ Stub traits is a technique to simulate some comportments or to avoid to be block
 stub_trait is generally only used by tests. Add the following snippet into your `Cargo.toml`:
 ```toml
 [dev-dependencies]
-stub_trait = "0.1.0
+stub_trait = "0.1.0"
 ```
 
 You can use it like this:

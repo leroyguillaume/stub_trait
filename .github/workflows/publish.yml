@@ -1,0 +1,68 @@
+---
+name: publish
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    name: publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Check versions are up-to-date
+        run: |
+          exit_code=0
+          if [[ v$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "stub_trait_core") | .version') != ${GITHUB_REF_NAME} ]]; then
+            echo "::error file=stub_trait_core/Cargo.toml::Version does not match ${GITHUB_REF_NAME:1}"
+            exit_code=1
+          fi
+          if [[ v$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "stub_trait") | .version') != ${GITHUB_REF_NAME} ]]; then
+            echo "::error file=stub_trait/Cargo.toml::Version does not match ${GITHUB_REF_NAME:1}"
+            exit_code=1
+          fi
+          if [[ v$(cat README.md | grep "^stub_trait = " | cut -d"=" -f2 | cut -d'"' -f2) != ${GITHUB_REF_NAME} ]]; then
+            echo "::error file=README.md::Please update usage with version ${GITHUB_REF_NAME:1}"
+            exit_code=1
+          fi
+          exit ${exit_code}
+
+      - name: Build changelog
+        id: changelog
+        uses: mikepenz/release-changelog-builder-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub release
+        uses: ncipollo/release-action@v1
+        with:
+          body: ${{ steps.changelog.outputs.changelog }}
+
+      - name: Restore cargo cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run cargo build
+        run: cargo build --release
+
+      - name: Run cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          cargo publish -p stub_trait_core
+          cargo publish -p stub_trait

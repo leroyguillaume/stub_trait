@@ -20,5 +20,5 @@ proc-macro = true
 [dependencies]
 proc-macro2 = "1.0"
 quote = "1.0"
-stub_trait_core = { path = "../stub_trait_core" }
+stub_trait_core = { path = "../stub_trait_core", version = "0.1.0" }
 syn = { version = "1.0", features = ["full"] }
