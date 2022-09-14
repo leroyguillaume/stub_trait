@@ -5,9 +5,27 @@
 //! ```
 //! use stub_trait::stub;
 //!
+//! enum Kind<'a> {
+//!     Cat(&'a Cat),
+//! }
+//!
 //! #[stub]
 //! trait Animal {
+//!     fn kind(&self) -> Kind<'_>;
+//!
 //!     fn name(&self) -> &str;
+//! }
+//!
+//! struct Cat(String);
+//!
+//! impl Animal for Cat {
+//!     fn kind(&self) -> Kind<'_> {
+//!         Kind::Cat(self)
+//!     }
+//!
+//!     fn name(&self) -> &str {
+//!         &self.0
+//!     }
 //! }
 //!
 //! let mut animal1 = StubAnimal::default();
@@ -28,7 +46,8 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, FnArg, ItemTrait, Lifetime, ReturnType, TraitItem, Type, TypeReference,
+    parse_macro_input, FnArg, GenericArgument, ItemTrait, Lifetime, PathArguments, ReturnType,
+    TraitItem, Type, TypeReference,
 };
 
 #[proc_macro_attribute]
@@ -68,6 +87,20 @@ pub fn stub(_: TokenStream, input: TokenStream) -> TokenStream {
             let method_type = match &item_method.sig.output {
                 ReturnType::Default => quote! { () },
                 ReturnType::Type(_, ty) => match ty.as_ref() {
+                    Type::Path(ty) => {
+                        let mut segments = ty.path.segments.clone();
+                        let last_segment = segments.last_mut().unwrap();
+                        if let PathArguments::AngleBracketed(ty) = &mut last_segment.arguments {
+                            if let GenericArgument::Lifetime(lifetime) =
+                                ty.args.first_mut().unwrap()
+                            {
+                                if lifetime.ident == format_ident!("_") {
+                                    lifetime.ident = format_ident!("static");
+                                }
+                            }
+                        }
+                        quote! { #segments }
+                    }
                     Type::Reference(ty) => {
                         let ty = TypeReference {
                             lifetime: Some(Lifetime::new("'static", Span::call_site())),
