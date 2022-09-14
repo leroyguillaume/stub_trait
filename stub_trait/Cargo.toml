@@ -10,6 +10,7 @@ keywords = ["mock", "mocking", "stub", "stubing", "testing"]
 documentation = "https://docs.rs/stub_trait"
 edition = "2021"
 description = "Macro to implement stub object for a trait."
+exclude = ["examples/*", "tests/*"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
