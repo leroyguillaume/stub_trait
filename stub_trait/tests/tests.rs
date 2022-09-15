@@ -5,6 +5,16 @@ trait Animal {
     fn name(&self) -> &str;
 }
 
+#[stub]
+trait List<T> {
+    fn add(&mut self, item: T);
+}
+
+#[stub]
+trait Person<'a> {
+    fn name(&self) -> &'a str;
+}
+
 #[test]
 #[should_panic]
 fn should_panic_if_stub_all_calls_of_is_called_twice() {
