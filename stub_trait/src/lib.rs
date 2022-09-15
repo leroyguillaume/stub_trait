@@ -28,7 +28,7 @@ use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
     parse_macro_input, FnArg, GenericArgument, ItemTrait, Lifetime, PathArguments, ReturnType,
-    TraitItem, Type, TypeReference,
+    TraitItem, Type,
 };
 
 #[proc_macro_attribute]
@@ -36,6 +36,7 @@ pub fn stub(_: TokenStream, input: TokenStream) -> TokenStream {
     let item_trait = parse_macro_input!(input as ItemTrait);
 
     let trait_ident = &item_trait.ident;
+    let trait_generic_params = &item_trait.generics.params;
     let stub_struct_ident = format_ident!("Stub{}", trait_ident);
 
     let mut attrs = vec![];
@@ -65,9 +66,10 @@ pub fn stub(_: TokenStream, input: TokenStream) -> TokenStream {
             let stub_all_calls_of_fn_ident = format_ident!("stub_all_calls_of_{}", method_ident);
             let register_stub_of_fn_ident = format_ident!("register_stub_of_{}", method_ident);
 
-            let method_type = match &item_method.sig.output {
-                ReturnType::Default => quote! { () },
-                ReturnType::Type(_, ty) => match ty.as_ref() {
+            let mut method_output = item_method.sig.output.clone();
+            let method_output = match method_output {
+                ReturnType::Default => quote! {},
+                ReturnType::Type(_, ref mut ty) => match ty.as_mut() {
                     Type::Path(ty) => {
                         let mut segments = ty.path.segments.clone();
                         let last_segment = segments.last_mut().unwrap();
@@ -80,20 +82,19 @@ pub fn stub(_: TokenStream, input: TokenStream) -> TokenStream {
                                 }
                             }
                         }
-                        quote! { #segments }
+                        quote! { -> #segments }
                     }
-                    Type::Reference(ty) => {
-                        let ty = TypeReference {
-                            lifetime: Some(Lifetime::new("'static", Span::call_site())),
-                            ..ty.clone()
-                        };
-                        quote! { #ty }
+                    Type::Reference(ref mut ty) => {
+                        if ty.lifetime.is_none() {
+                            ty.lifetime = Some(Lifetime::new("'static", Span::call_site()));
+                        }
+                        quote! { -> #ty }
                     }
-                    ty => quote! { #ty },
+                    ty => quote! { -> #ty },
                 },
             };
             let closure_type = quote! {
-                Fn(#(#method_arg_types),*) -> #method_type + 'static
+                Fn(#(#method_arg_types),*) #method_output + 'static
             };
             let attr = quote! {
                 #attr_ident: Option<stub_trait_core::StubFn<Box<dyn #closure_type>>>
@@ -139,7 +140,7 @@ pub fn stub(_: TokenStream, input: TokenStream) -> TokenStream {
                 }
             };
             let stub_fn = quote! {
-                fn #method_ident(#method_inputs) -> #method_type {
+                fn #method_ident(#method_inputs) #method_output {
                     if let Some(stub) = &self.#attr_ident {
                         let mut count = stub.count.lock().unwrap();
                         *count += 1;
@@ -168,15 +169,15 @@ pub fn stub(_: TokenStream, input: TokenStream) -> TokenStream {
         #item_trait
 
         #[derive(Default)]
-        pub struct #stub_struct_ident {
+        pub struct #stub_struct_ident<#trait_generic_params> {
             #(#attrs),*
         }
 
-        impl #stub_struct_ident {
+        impl<#trait_generic_params> #stub_struct_ident<#trait_generic_params> {
             #(#impl_fns)*
         }
 
-        impl #trait_ident for #stub_struct_ident {
+        impl<#trait_generic_params> #trait_ident<#trait_generic_params> for #stub_struct_ident<#trait_generic_params> {
             #(#stub_fns)*
         }
     };
