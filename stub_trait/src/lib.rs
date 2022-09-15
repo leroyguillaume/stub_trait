@@ -5,41 +5,22 @@
 //! ```
 //! use stub_trait::stub;
 //!
-//! enum Kind<'a> {
-//!     Cat(&'a Cat),
-//! }
-//!
 //! #[stub]
 //! trait Animal {
-//!     fn kind(&self) -> Kind<'_>;
+//!     fn feed(&self, quantity: usize) -> usize;
 //!
 //!     fn name(&self) -> &str;
 //! }
 //!
-//! struct Cat(String);
-//!
-//! impl Animal for Cat {
-//!     fn kind(&self) -> Kind<'_> {
-//!         Kind::Cat(self)
-//!     }
-//!
-//!     fn name(&self) -> &str {
-//!         &self.0
-//!     }
-//! }
-//!
-//! let mut animal1 = StubAnimal::default();
-//! animal1.stub_all_calls_of_name(|| "Ivana");
-//! assert_eq!(animal1.name(), "Ivana");
-//! assert_eq!(animal1.name(), "Ivana");
-//! assert_eq!(animal1.count_calls_of_name(), 2);
-//!
-//! let mut animal2 = StubAnimal::default();
-//! animal2.register_stub_of_name(|| "Ivana");
-//! animal2.register_stub_of_name(|| "Truffle");
-//! assert_eq!(animal2.name(), "Ivana");
-//! assert_eq!(animal2.name(), "Truffle");
-//! assert_eq!(animal2.count_calls_of_name(), 2);
+//! let mut animal = StubAnimal::default();
+//! animal.stub_all_calls_of_name(|| "Ivana");
+//! animal.register_stub_of_feed(|quantity| quantity - 1);
+//! animal.register_stub_of_feed(|quantity| quantity + 1);
+//! assert_eq!(animal.name(), "Ivana");
+//! assert_eq!(animal.name(), "Ivana");
+//! assert_eq!(animal.count_calls_of_name(), 2);
+//! assert_eq!(animal.feed(10), 9);
+//! assert_eq!(animal.feed(10), 11);
 //! ```
 
 use proc_macro::TokenStream;
