@@ -2,8 +2,7 @@
 name: ci
 
 on:
-  push:
-    branches: ["*"]
+  pull_request:
     paths-ignore:
       - .github/workflows/publish.yml
       - .gitignore
