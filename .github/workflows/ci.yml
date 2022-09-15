@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v3
@@ -34,7 +36,7 @@ jobs:
         run: npm install
 
       - name: Run commitlint
-        run: node node_modules/@commitlint/cli/cli.js --from=main --to="${GITHUB_SHA}"
+        run: node node_modules/@commitlint/cli/cli.js --from=origin/main
 
   lint-clippy-test:
     name: lint-clippy-test
