@@ -2,7 +2,7 @@
 name = "stub_trait_core"
 version = "0.2.0"
 authors = ["Guillaume Leroy <pro.guillaume.leroy@gmail.com"]
-license-file = "../LICENSE"
+license = "MIT"
 readme = "../README.md"
 repository = "https://github.com/leroyguillaume/stub_trait"
 documentation = "https://docs.rs/stub_trait_core"
