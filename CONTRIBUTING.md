@@ -4,7 +4,7 @@ Pull requests are welcome. We're happy to help contributors.
 
 To make changes to the code, fork it first and clone it:
 ```bash
-git clone git@github.com:your-username/denv.git
+git clone git@github.com:your-username/stub_trait.git
 ```
 
 Now, install [pre-commit](https://pre-commit.com/) hooks:
