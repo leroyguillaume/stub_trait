@@ -14,7 +14,7 @@ Stub traits is a technique to simulate some comportments or to avoid to be block
 stub_trait is generally only used by tests. Add the following snippet into your `Cargo.toml`:
 ```toml
 [dev-dependencies]
-stub_trait = "0.2.0"
+stub_trait = "0.3.0"
 ```
 
 You can use it like this:
@@ -24,31 +24,25 @@ use stub_trait::stub;
 
 #[cfg_attr(test, stub)]
 trait Animal {
-    fn name(&self) -> &str;
+    fn feed(&self, quantity: usize) -> &str;
 }
 
 #[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn stub_all_calls() {
-        let mut animal = StubAnimal::default();
-        animal.stub_all_calls_of_name(|| "Ivana");
-        assert_eq!(animal.name(), "Ivana");
-        assert_eq!(animal.name(), "Ivana");
-        assert_eq!(animal.count_calls_of_name(), 2);
-    }
-
-    #[test]
-    fn stub_call_by_call() {
-        let mut animal = StubAnimal::default();
-        animal.register_stub_of_name(|| "Ivana");
-        animal.register_stub_of_name(|| "Truffle");
-        assert_eq!(animal.name(), "Ivana");
-        assert_eq!(animal.name(), "Truffle");
-        assert_eq!(animal.count_calls_of_name(), 2);
-    }
+fn test() {
+    let animal = StubAnimal::new().with_stub_of_feed(|i, quantity| {
+        if i == 0 {
+            assert_eq!(quantity, 10);
+            "sad!"
+        } else if i == 1 {
+            assert_eq!(quantity, 20);
+            "happy!"
+        } else {
+            panic!("too much invocations!")
+        }
+    });
+    assert_eq!(animal.feed(10), "sad!");
+    assert_eq!(animal.feed(20), "happy!");
+    assert_eq!(animal.count_calls_of_feed(), 2);
 }
 ```
 
