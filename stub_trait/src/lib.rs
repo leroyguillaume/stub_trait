@@ -7,20 +7,23 @@
 //!
 //! #[stub]
 //! trait Animal {
-//!     fn feed(&self, quantity: usize) -> usize;
-//!
-//!     fn name(&self) -> &str;
+//!     fn feed(&self, quantity: usize) -> &str;
 //! }
 //!
-//! let mut animal = StubAnimal::new();
-//! animal.stub_all_calls_of_name(|| "Ivana");
-//! animal.register_stub_of_feed(|quantity| quantity - 1);
-//! animal.register_stub_of_feed(|quantity| quantity + 1);
-//! assert_eq!(animal.name(), "Ivana");
-//! assert_eq!(animal.name(), "Ivana");
-//! assert_eq!(animal.count_calls_of_name(), 2);
-//! assert_eq!(animal.feed(10), 9);
-//! assert_eq!(animal.feed(10), 11);
+//! let animal = StubAnimal::new().with_stub_of_feed(|i, quantity| {
+//!     if i == 0 {
+//!         assert_eq!(quantity, 10);
+//!         "sad!"
+//!     } else if i == 1 {
+//!         assert_eq!(quantity, 20);
+//!         "happy!"
+//!     } else {
+//!         panic!("too much invocations!")
+//!     }
+//! });
+//! assert_eq!(animal.feed(10), "sad!");
+//! assert_eq!(animal.feed(20), "happy!");
+//! assert_eq!(animal.count_calls_of_feed(), 2);
 //! ```
 
 use proc_macro::TokenStream;
@@ -64,8 +67,7 @@ pub fn stub(_: TokenStream, input: TokenStream) -> TokenStream {
             let method_ident = &item_method.sig.ident;
             let attr_ident = format_ident!("{}_stub", method_ident);
             let count_calls_of_fn_ident = format_ident!("count_calls_of_{}", method_ident);
-            let stub_all_calls_of_fn_ident = format_ident!("stub_all_calls_of_{}", method_ident);
-            let register_stub_of_fn_ident = format_ident!("register_stub_of_{}", method_ident);
+            let with_stub_of_fn_ident = format_ident!("with_stub_of_{}", method_ident);
 
             let mut method_output = item_method.sig.output.clone();
             let method_output = match method_output {
@@ -95,10 +97,10 @@ pub fn stub(_: TokenStream, input: TokenStream) -> TokenStream {
                 },
             };
             let closure_type = quote! {
-                Fn(#(#method_arg_types),*) #method_output + 'static
+                Fn(usize, #(#method_arg_types),*) #method_output + 'static
             };
             let attr = quote! {
-                #attr_ident: Option<stub_trait_core::StubFn<Box<dyn #closure_type>>>
+                #attr_ident: Option<(Box<dyn #closure_type>, std::sync::atomic::AtomicUsize)>
             };
             let attr_init = quote! {
                 #attr_ident: None
@@ -106,60 +108,23 @@ pub fn stub(_: TokenStream, input: TokenStream) -> TokenStream {
             let fns = quote! {
                 pub fn #count_calls_of_fn_ident(&self) -> usize {
                     self.#attr_ident.as_ref()
-                        .map(|stub| *stub.count.lock().unwrap())
+                        .map(|stub| stub.1.load(std::sync::atomic::Ordering::Relaxed))
                         .unwrap_or_default()
                 }
 
-                pub fn #register_stub_of_fn_ident<F: #closure_type>(&mut self, f: F) {
-                    let f: Box<dyn #closure_type> = Box::new(f);
-                    if let Some(ref mut stub) = &mut self.#attr_ident {
-                        match &mut stub.kind {
-                            stub_trait_core::StubFnKind::AllCalls(_) => {
-                                panic!("All calls of {} are already stubbed", stringify!(#method_ident));
-                            }
-                            stub_trait_core::StubFnKind::CallByCall(ref mut fns) => {
-                                fns.push(f);
-                            }
-                        }
-                    } else {
-                        let kind = stub_trait_core::StubFnKind::CallByCall(vec![f]);
-                        let stub = stub_trait_core::StubFn {
-                            count: std::sync::Mutex::new(0),
-                            kind,
-                        };
-                        self.#attr_ident = Some(stub);
-                    }
-                }
-
-                pub fn #stub_all_calls_of_fn_ident<F: #closure_type>(&mut self, f: F) {
-                    if self.#attr_ident.is_some() {
-                        panic!("At least one call of {} is already stubbed", stringify!(#method_ident));
-                    }
-                    let f: Box<dyn #closure_type> = Box::new(f);
-                    let stub = stub_trait_core::StubFn {
-                        count: std::sync::Mutex::new(0),
-                        kind: stub_trait_core::StubFnKind::AllCalls(f),
-                    };
-                    self.#attr_ident = Some(stub);
+                pub fn #with_stub_of_fn_ident<F: #closure_type>(mut self, f: F) -> Self {
+                    self.#attr_ident = Some((Box::new(f), std::sync::atomic::AtomicUsize::new(0)));
+                    self
                 }
             };
             let stub_fn = quote! {
                 fn #method_ident(#method_inputs) #method_output {
-                    if let Some(stub) = &self.#attr_ident {
-                        let mut count = stub.count.lock().unwrap();
-                        *count += 1;
-                        match &stub.kind {
-                            stub_trait_core::StubFnKind::AllCalls(f) => f(#(#method_arg_names),*),
-                            stub_trait_core::StubFnKind::CallByCall(ref fns) => {
-                                if fns.len() < *count {
-                                    unimplemented!("{} (too much invocations)", stringify!(#method_ident));
-                                }
-                                let f = &fns[*count - 1];
-                                f(#(#method_arg_names),*)
-                            }
+                    match &self.#attr_ident {
+                        Some(stub) => {
+                            let i = stub.1.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            stub.0(i, #(#method_arg_names),*)
                         }
-                    } else {
-                        unimplemented!(stringify!(#method_ident));
+                        None => panic!("unexpected invocation of {}", stringify!(#method_ident)),
                     }
                 }
             };
