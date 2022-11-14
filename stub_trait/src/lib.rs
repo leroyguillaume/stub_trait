@@ -12,7 +12,7 @@
 //!     fn name(&self) -> &str;
 //! }
 //!
-//! let mut animal = StubAnimal::default();
+//! let mut animal = StubAnimal::new();
 //! animal.stub_all_calls_of_name(|| "Ivana");
 //! animal.register_stub_of_feed(|quantity| quantity - 1);
 //! animal.register_stub_of_feed(|quantity| quantity + 1);
@@ -40,6 +40,7 @@ pub fn stub(_: TokenStream, input: TokenStream) -> TokenStream {
     let stub_struct_ident = format_ident!("Stub{}", trait_ident);
 
     let mut attrs = vec![];
+    let mut attrs_init = vec![];
     let mut impl_fns = vec![];
     let mut stub_fns = vec![];
 
@@ -98,6 +99,9 @@ pub fn stub(_: TokenStream, input: TokenStream) -> TokenStream {
             };
             let attr = quote! {
                 #attr_ident: Option<stub_trait_core::StubFn<Box<dyn #closure_type>>>
+            };
+            let attr_init = quote! {
+                #attr_ident: None
             };
             let fns = quote! {
                 pub fn #count_calls_of_fn_ident(&self) -> usize {
@@ -160,6 +164,7 @@ pub fn stub(_: TokenStream, input: TokenStream) -> TokenStream {
                 }
             };
             attrs.push(attr);
+            attrs_init.push(attr_init);
             impl_fns.push(fns);
             stub_fns.push(stub_fn);
         }
@@ -168,13 +173,24 @@ pub fn stub(_: TokenStream, input: TokenStream) -> TokenStream {
     let expanded = quote! {
         #item_trait
 
-        #[derive(Default)]
         pub struct #stub_struct_ident<#trait_generic_params> {
             #(#attrs),*
         }
 
         impl<#trait_generic_params> #stub_struct_ident<#trait_generic_params> {
+            pub fn new() -> Self {
+                Self {
+                    #(#attrs_init),*
+                }
+            }
+
             #(#impl_fns)*
+        }
+
+        impl<#trait_generic_params> Default for #stub_struct_ident<#trait_generic_params> {
+            fn default() -> Self {
+                Self::new()
+            }
         }
 
         impl<#trait_generic_params> #trait_ident<#trait_generic_params> for #stub_struct_ident<#trait_generic_params> {
