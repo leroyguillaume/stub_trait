@@ -158,6 +158,12 @@ pub fn stub(_: TokenStream, input: TokenStream) -> TokenStream {
             }
         }
 
+        impl<#trait_generic_params> std::fmt::Debug for #stub_struct_ident<#trait_generic_params> {
+            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.debug_struct(stringify!(#stub_struct_ident)).finish()
+            }
+        }
+
         impl<#trait_generic_params> #trait_ident<#trait_generic_params> for #stub_struct_ident<#trait_generic_params> {
             #(#stub_fns)*
         }
